@@ -43,7 +43,7 @@ test('environment validation rejects an invalid analysis window', () => {
 test('one registry provides unique executable slash commands for runtime and deployment', () => {
   const names = commandData.map((command) => command.name);
 
-  assert.deepEqual(names.sort(), ['analyse', 'fixtures', 'help', 'ping', 'status']);
+  assert.deepEqual(names.sort(), ['accumulator', 'analyse', 'bets', 'fixtures', 'help', 'ping', 'predictions', 'status']);
   assert.equal(new Set(names).size, names.length);
   assert.ok(names.includes('ping'));
   assert.ok(names.includes('help'));

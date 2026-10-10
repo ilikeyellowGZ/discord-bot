@@ -16,3 +16,19 @@ test('Accumulator builder respects the maximum number of legs', () => {
   assert.equal(result.legs.length, 3);
   assert.ok(result.conservativeProbability <= 1);
 });
+
+test('Accumulator removes correlated same-match legs and identifies the weakest leg', () => {
+  const predictions = [
+    { matchId: '1', match: 'A vs B', market: 'Double Chance', selection: 'A or Draw', probability: 0.8 },
+    { matchId: '1', match: 'A vs B', market: 'Over 1.5', selection: 'Over 1.5', probability: 0.75 },
+    { matchId: '2', match: 'C vs D', market: 'BTTS', selection: 'No', probability: 0.7 },
+  ];
+
+  const result = buildAccumulatorSelections(predictions, { minProbability: 0.6 });
+
+  assert.equal(result.legs.length, 2);
+  assert.deepEqual(result.legs.map((leg) => leg.matchId), ['1', '2']);
+  assert.equal(result.combinedProbability, 0.56);
+  assert.equal(result.weakestLeg.matchId, '2');
+  assert.match(result.correlationPolicy, /one selection per match/i);
+});
