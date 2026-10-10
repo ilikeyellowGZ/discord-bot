@@ -4,13 +4,14 @@ A staged football prediction and betting-analysis bot built with Node.js ES modu
 
 ## Current status
 
-Stage 1 is enabled. The runtime currently registers these verified commands:
+Stages 1 and 2 are enabled. The runtime currently registers these verified commands:
 
 - `/ping` — bot and WebSocket latency
 - `/help` — enabled command list
 - `/status` — bot configuration and MongoDB connection health
+- `/fixtures [limit]` — upcoming live fixtures from API-Football (1–20)
 
-Later-stage command files and statistical services are present from an earlier scaffold, but are deliberately not registered yet. Some contain sample placeholders and must not be treated as live football analysis. They will be replaced and enabled incrementally in Stages 2–7.
+Later-stage command files and statistical services are present from an earlier scaffold, but are deliberately not registered yet. Some contain sample placeholders and must not be treated as live football analysis. They will be replaced and enabled incrementally in Stages 3–7.
 
 ## Requirements
 
@@ -82,7 +83,13 @@ npm run dev
 
 ## Startup behavior
 
-Startup validates configuration without printing secret values. The bot attempts MongoDB before Discord login. If MongoDB is temporarily unavailable, it logs a warning and starts in degraded mode so `/ping`, `/help`, and `/status` remain usable.
+Startup validates configuration without printing secret values. The bot attempts MongoDB before Discord login. If MongoDB is temporarily unavailable, it logs a warning and starts in degraded mode; `/fixtures` can still return live data but skips persistence.
+
+## Football data behavior
+
+The API-Football client uses the fixed official v3 host and the `x-apisports-key` header. It uses date queries compatible with the free plan and scans at most three calendar dates until it has enough fixtures. It filters out past/cancelled fixtures, sorts by kickoff, and applies the requested limit locally. Responses are cached in memory for five minutes, concurrent identical requests are deduplicated, and transient failures retry at most twice with bounded exponential backoff.
+
+Returned fixtures are upserted into MongoDB by immutable provider fixture ID. No sample or invented fixture fallback is used. Provider errors produce a user-safe Discord response.
 
 ## Testing
 
@@ -95,7 +102,7 @@ The suite currently covers Stage 1 configuration and command registration plus t
 ## Planned stages
 
 1. Discord startup, configuration, health commands, and database connection — enabled
-2. API-Football provider, fixture persistence, caching, and `/fixtures`
+2. API-Football provider, fixture persistence, caching, and `/fixtures` — enabled
 3. Transparent Poisson model and match analysis
 4. Predictions, betting analysis, and accumulator commands
 5. Scheduling, daily posts, and favourite teams

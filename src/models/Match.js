@@ -7,10 +7,15 @@ const matchSchema = new mongoose.Schema({
     unique: true,
     index: true,
   },
-  leagueName: String,
-  country: String,
-  season: Number,
-  kickoffAt: Date,
+  provider: { type: String, required: true, default: 'api-football' },
+  providerUpdatedAt: { type: Date, required: true },
+  league: {
+    id: { type: String, required: true, index: true },
+    name: { type: String, required: true },
+    country: String,
+    season: Number,
+  },
+  kickoffAt: { type: Date, required: true, index: true },
   homeTeam: {
     id: String,
     name: String,
@@ -19,17 +24,14 @@ const matchSchema = new mongoose.Schema({
     id: String,
     name: String,
   },
-  status: String,
+  status: {
+    short: { type: String, required: true, index: true },
+    long: String,
+  },
   score: {
     home: Number,
     away: Number,
   },
-  providerData: {
-    type: mongoose.Schema.Types.Mixed,
-    default: {},
-  },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
 export const Match = mongoose.models.Match || mongoose.model('Match', matchSchema);

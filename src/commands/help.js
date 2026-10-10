@@ -4,6 +4,7 @@ const commandSummary = [
   '/ping — test connectivity and latency',
   '/help — show this command list',
   '/status — report bot and database health',
+  '/fixtures — list upcoming fixtures from API-Football',
 ];
 
 export default {
@@ -15,7 +16,7 @@ export default {
     const embed = new EmbedBuilder()
       .setColor('#3498DB')
       .setTitle('⚽ Football Intelligence Help')
-      .setDescription('Stage 1 is active. Football-data and prediction commands will be enabled only after their live integrations are implemented and verified.')
+      .setDescription('Stages 1–2 are active. Prediction commands remain disabled until their models and data inputs are verified.')
       .addFields({ name: 'Commands', value: commandSummary.join('\n') });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
