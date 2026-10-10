@@ -3,6 +3,7 @@ import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { commands } from './commands/index.js';
 import { validateEnv } from './config/env.js';
 import { connectDatabase, getDatabaseStatus } from './db/connect.js';
+import { startDailyAnalysisJob } from './jobs/dailyAnalysis.js';
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -16,6 +17,12 @@ client.once(Events.ClientReady, async (readyClient) => {
   try {
     const dbStatus = getDatabaseStatus();
     console.log(`Database status: ${dbStatus.connected ? 'connected' : 'not connected'}`);
+    if (dbStatus.connected) {
+      startDailyAnalysisJob(readyClient);
+      console.log('Daily analysis scheduler started.');
+    } else {
+      console.warn('Daily analysis scheduler skipped because MongoDB is unavailable.');
+    }
   } catch (error) {
     console.warn('Database status check failed:', error.message);
   }

@@ -45,6 +45,16 @@ Required variables:
 - `TIMEZONE`
 - `ANALYSIS_HOURS_BEFORE_KICKOFF`
 
+Optional Stage 5 scheduling variables:
+
+- `ANALYSIS_REFRESH_HOURS` — minimum age of an existing snapshot before refreshing it; defaults to `6`
+- `SCHEDULER_INTERVAL_MINUTES` — scheduler polling interval; defaults to `60`
+- `DAILY_POST_TIME` — local posting time in 24-hour `HH:mm` format; defaults to `08:00`
+- `DAILY_POST_CHANNEL_ID` — Discord text-channel ID; leave empty to disable daily posts safely
+- `FAVOURITE_TEAM_IDS` — comma-separated API-Football team IDs
+
+To add or remove favourite teams, edit `FAVOURITE_TEAM_IDS` and restart the bot. For example, `FAVOURITE_TEAM_IDS=42,50` tracks provider team IDs 42 and 50. The list is deduplicated and capped at 20 teams. Team names are intentionally not accepted because provider IDs avoid ambiguous names.
+
 `.env` is ignored by Git. Never commit it or paste its values into chat, logs, or Discord.
 
 ## Discord installation and permissions
@@ -109,6 +119,16 @@ Stage 4 reads only saved pre-match snapshots; it never creates sample picks. A p
 
 Accumulator suggestions contain at most seven legs and allow only one leg per match to remove direct same-match correlation. Combined probability is shown only under an explicit distinct-match independence assumption. Each response identifies its weakest leg, data gaps, and why the full slip could fail. No bookmaker odds are fabricated and no bet is placed automatically.
 
+## Stage 5 scheduling
+
+When Discord is ready and MongoDB is connected, the scheduler runs immediately and then at `SCHEDULER_INTERVAL_MINUTES`. It refreshes the provider fixture cache, persists fixtures, and analyses matches inside `ANALYSIS_HOURS_BEFORE_KICKOFF`. Upcoming favourite-team fixtures found during the three-day provider scan are included even when outside the normal analysis window.
+
+An existing prediction snapshot suppresses recalculation until it is at least `ANALYSIS_REFRESH_HOURS` old. Individual provider or analysis failures do not stop other fixtures, and overlapping cycles are coalesced. Predictions are always created through the provider-backed analysis service; the scheduler does not manufacture fallback statistics.
+
+Daily summaries contain saved pre-match snapshots only. They show kickoff, win/draw/win probabilities, top scorelines, the strongest qualified market, data gaps, and the command needed for the full analysis. MongoDB uses an atomic ten-minute lease plus the local calendar date to prevent duplicate posts across restarts or multiple bot instances. A failed Discord send releases the lease for a later retry.
+
+The configured channel needs View Channel, Send Messages, and Embed Links. If `DAILY_POST_CHANNEL_ID` is empty, the posting step is skipped without error. Current live analysis remains subject to the API-Football subscription limitation described above.
+
 ## Testing
 
 ```powershell
@@ -123,7 +143,7 @@ The suite covers configuration, command registration, provider behavior, fixture
 2. API-Football provider, fixture persistence, caching, and `/fixtures` — enabled
 3. Transparent Poisson model and match analysis — implemented; live 2026 data blocked by the configured free API plan
 4. Predictions, betting analysis, and accumulator commands — enabled; honest empty states until valid current-season snapshots exist
-5. Scheduling, daily posts, and favourite teams
+5. Scheduling, daily posts, and favourite teams — enabled
 6. Private bet tracking, settlement, and performance metrics
 7. Permitted external-source adapters and controlled model evaluation
 

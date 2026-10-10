@@ -153,22 +153,32 @@ export class FootballApiService {
       throw new TypeError('Fixture limit must be an integer between 1 and 20.');
     }
     const now = this.now();
+    const favouriteTeamIds = new Set((options.favouriteTeamIds ?? []).map(String));
+    const requestOptions = { ...options };
+    delete requestOptions.favouriteTeamIds;
     const startDate = dateInTimeZone(now, this.timeZone);
     const upcoming = [];
-    for (let dayOffset = 0; dayOffset < 3 && upcoming.length < limit; dayOffset += 1) {
+    for (let dayOffset = 0; dayOffset < 3 && (upcoming.length < limit || favouriteTeamIds.size > 0); dayOffset += 1) {
       const fixtures = await this.request('/fixtures', {
         date: addCalendarDays(startDate, dayOffset),
         timezone: this.timeZone,
-      }, options);
+      }, requestOptions);
       upcoming.push(...fixtures.filter((item) => {
         const kickoff = Date.parse(item?.fixture?.date);
         const status = item?.fixture?.status?.short;
         return Number.isFinite(kickoff) && kickoff >= now && ['NS', 'TBD'].includes(status);
       }));
     }
-    return upcoming
-      .sort((left, right) => Date.parse(left.fixture.date) - Date.parse(right.fixture.date))
-      .slice(0, limit);
+    const sorted = upcoming.sort((left, right) => Date.parse(left.fixture.date) - Date.parse(right.fixture.date));
+    const selected = sorted.slice(0, limit);
+    if (favouriteTeamIds.size === 0) return selected;
+    const selectedIds = new Set(selected.map((item) => String(item.fixture.id)));
+    for (const item of sorted) {
+      const favourite = favouriteTeamIds.has(String(item?.teams?.home?.id))
+        || favouriteTeamIds.has(String(item?.teams?.away?.id));
+      if (favourite && !selectedIds.has(String(item.fixture.id))) selected.push(item);
+    }
+    return selected;
   }
 
   async getMatchById(matchId, options = {}) {

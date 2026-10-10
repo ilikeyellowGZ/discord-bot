@@ -117,6 +117,27 @@ test('upcoming fixtures scan the next date when today has too few matches', asyn
   assert.deepEqual(fixtures.map((item) => item.fixture.id), [9]);
 });
 
+test('favourite-team fixtures are retained beyond the normal display limit', async () => {
+  const service = new FootballApiService({
+    apiKey: 'key',
+    now: () => Date.parse('2026-10-10T10:00:00Z'),
+    fetchImpl: async (url) => {
+      const date = new URL(url).searchParams.get('date');
+      const response = date === '2026-10-11'
+        ? [{ fixture: { id: 99, date: '2026-10-11T12:00:00Z', status: { short: 'NS' } }, teams: { home: { id: 500 }, away: { id: 2 } } }]
+        : [
+          { fixture: { id: 1, date: '2026-10-10T11:00:00Z', status: { short: 'NS' } }, teams: { home: { id: 1 }, away: { id: 2 } } },
+          { fixture: { id: 2, date: '2026-10-10T12:00:00Z', status: { short: 'NS' } }, teams: { home: { id: 3 }, away: { id: 4 } } },
+        ];
+      return apiResponse({ errors: [], response });
+    },
+  });
+
+  const fixtures = await service.getUpcomingFixtures(1, { favouriteTeamIds: ['500'] });
+
+  assert.deepEqual(fixtures.map((item) => item.fixture.id), [1, 99]);
+});
+
 test('transient server failures retry with a bounded attempt count', async () => {
   let calls = 0;
   const waits = [];
