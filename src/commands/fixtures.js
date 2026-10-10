@@ -63,11 +63,12 @@ export function createFixturesCommand({
         const home = fixture?.teams?.home?.name;
         const away = fixture?.teams?.away?.name;
         const league = fixture?.league?.name;
+        const fixtureId = fixture?.fixture?.id;
         const kickoff = new Date(fixture?.fixture?.date);
-        if (!home || !away || !league || Number.isNaN(kickoff.getTime())) return [];
+        if (!home || !away || !league || !fixtureId || Number.isNaN(kickoff.getTime())) return [];
         const status = fixture?.fixture?.status?.short;
         const statusText = status && status !== 'NS' ? ` • ${status}` : '';
-        return [{ name: `${home} vs ${away}`, value: `${league} • ${dateFormatter.format(kickoff)}${statusText}` }];
+        return [{ name: `${home} vs ${away}`, value: `${league} • ${dateFormatter.format(kickoff)}${statusText}\nFixture ID: ${fixtureId}` }];
       });
 
       if (fields.length === 0) {

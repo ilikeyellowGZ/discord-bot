@@ -6,6 +6,8 @@ const predictionSnapshotSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  homeTeamId: { type: String, required: true, index: true },
+  awayTeamId: { type: String, required: true, index: true },
   modelVersion: String,
   predictionTimestamp: Date,
   probabilities: {
@@ -20,7 +22,9 @@ const predictionSnapshotSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {},
   },
-  notes: String,
+  features: { type: mongoose.Schema.Types.Mixed, default: {} },
+  missingInputs: [String],
+  limitations: [String],
 }, { timestamps: true });
 
 predictionSnapshotSchema.index({ matchId: 1, modelVersion: 1, predictionTimestamp: 1 }, { unique: true });

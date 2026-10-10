@@ -1,7 +1,7 @@
 import { env } from '../config/env.js';
 
 const API_BASE_URL = 'https://v3.football.api-sports.io';
-const ALLOWED_PATHS = new Set(['/fixtures', '/status']);
+const ALLOWED_PATHS = new Set(['/fixtures', '/status', '/teams/statistics']);
 const defaultSleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 export class FootballApiError extends Error {
@@ -112,7 +112,7 @@ export class FootballApiService {
         if (hasProviderErrors(data.errors)) {
           throw new FootballApiError('Football data provider rejected the request.', { code: 'PROVIDER_ERROR' });
         }
-        const value = Array.isArray(data.response) ? data.response : [];
+        const value = data.response ?? [];
         this.cache.set(cacheKey, { value, expiresAt: this.now() + this.cacheTtlMs });
         this.health = {
           lastSuccessfulRequestAt: new Date(this.now()),
@@ -178,6 +178,39 @@ export class FootballApiService {
     }
     const fixtures = await this.request('/fixtures', { id: normalizedId, timezone: this.timeZone }, options);
     return fixtures[0] ?? null;
+  }
+
+  async getTeamStatistics({ leagueId, season, teamId, asOf } = {}, options = {}) {
+    const identifiers = [leagueId, season, teamId].map(Number);
+    if (identifiers.some((value) => !Number.isInteger(value) || value <= 0)) {
+      throw new TypeError('League ID, season and team ID must be positive integers.');
+    }
+    if (asOf !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
+      throw new TypeError('Statistics date must use YYYY-MM-DD format.');
+    }
+    return this.request('/teams/statistics', {
+      league: identifiers[0],
+      season: identifiers[1],
+      team: identifiers[2],
+      date: asOf,
+    }, options);
+  }
+
+  async getCompletedLeagueFixtures({ leagueId, season, asOf } = {}, options = {}) {
+    const identifiers = [leagueId, season].map(Number);
+    if (identifiers.some((value) => !Number.isInteger(value) || value <= 0)) {
+      throw new TypeError('League ID and season must be positive integers.');
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf ?? '')) {
+      throw new TypeError('Fixture cutoff date must use YYYY-MM-DD format.');
+    }
+    return this.request('/fixtures', {
+      league: identifiers[0],
+      season: identifiers[1],
+      status: 'FT-AET-PEN',
+      to: asOf,
+      timezone: this.timeZone,
+    }, options);
   }
 }
 

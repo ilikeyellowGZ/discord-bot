@@ -164,3 +164,41 @@ test('a missing API key produces a configuration error without fallback data', a
     (error) => error instanceof FootballApiError && error.code === 'NOT_CONFIGURED'
   );
 });
+
+test('team statistics return the provider object using required identifiers', async () => {
+  let requestedUrl;
+  const providerStats = { team: { id: 50 }, fixtures: { played: { total: 8 } } };
+  const service = new FootballApiService({
+    apiKey: 'key',
+    fetchImpl: async (url) => {
+      requestedUrl = new URL(url);
+      return apiResponse({ errors: [], response: providerStats });
+    },
+  });
+
+  const result = await service.getTeamStatistics({ leagueId: 39, season: 2026, teamId: 50, asOf: '2026-10-10' });
+
+  assert.equal(requestedUrl.pathname, '/teams/statistics');
+  assert.deepEqual(Object.fromEntries(requestedUrl.searchParams), {
+    league: '39', season: '2026', team: '50', date: '2026-10-10',
+  });
+  assert.deepEqual(result, providerStats);
+});
+
+test('completed league fixtures use league, season, status and cutoff filters', async () => {
+  let requestedUrl;
+  const service = new FootballApiService({
+    apiKey: 'key',
+    fetchImpl: async (url) => {
+      requestedUrl = new URL(url);
+      return apiResponse({ errors: [], response: [] });
+    },
+  });
+
+  await service.getCompletedLeagueFixtures({ leagueId: 39, season: 2026, asOf: '2026-10-10' });
+
+  assert.equal(requestedUrl.pathname, '/fixtures');
+  assert.deepEqual(Object.fromEntries(requestedUrl.searchParams), {
+    league: '39', season: '2026', status: 'FT-AET-PEN', to: '2026-10-10', timezone: 'Africa/Johannesburg',
+  });
+});

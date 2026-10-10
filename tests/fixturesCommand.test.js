@@ -37,6 +37,7 @@ test('fixtures command displays provider data and persists it when MongoDB is co
   const response = interaction.state.reply.embeds[0].toJSON();
   assert.equal(response.fields[0].name, 'Manchester City vs Arsenal');
   assert.match(response.fields[0].value, /Premier League/);
+  assert.match(response.fields[0].value, /Fixture ID: 123/);
 });
 
 test('fixtures command returns a safe useful message when the provider is unavailable', async () => {
