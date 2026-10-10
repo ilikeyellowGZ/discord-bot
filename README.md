@@ -4,15 +4,18 @@ A staged football prediction and betting-analysis bot built with Node.js ES modu
 
 ## Current status
 
-Stages 1–3 are enabled. The runtime currently registers these verified commands:
+Stages 1–4 are enabled. The runtime currently registers these verified commands:
 
 - `/ping` — bot and WebSocket latency
 - `/help` — enabled command list
 - `/status` — bot configuration and MongoDB connection health
 - `/fixtures [limit]` — upcoming live fixtures from API-Football (1–20)
 - `/analyse fixture_id:<id>` — produce and save a Poisson analysis when current-season provider statistics are available
+- `/predictions` — show today’s saved pre-match snapshots
+- `/bets today` — show the highest-qualified probability-based selection per match
+- `/accumulator` — generate conservative multi-market and team-win suggestions
 
-Later-stage command files are present from an earlier scaffold, but are deliberately not registered yet. Some contain sample placeholders and must not be treated as live football analysis. They will be replaced and enabled incrementally in Stages 4–7.
+Later-stage command files are present from an earlier scaffold, but are deliberately not registered yet. They will be replaced and enabled incrementally in Stages 5–7.
 
 ## Requirements
 
@@ -100,20 +103,26 @@ The normalized score grid produces mutually consistent match-result, double-chan
 
 API-Football's configured free plan currently blocks 2026 team-season statistics and completed league queries, allowing seasons 2022–2024 only. Current fixtures can be listed, but current-season `/analyse` requests will therefore explain that coverage is unavailable and will not generate a prediction. Upgrading the provider subscription is required for live 2026 analysis; the bot will not substitute stale or invented inputs.
 
+## Stage 4 selection rules
+
+Stage 4 reads only saved pre-match snapshots; it never creates sample picks. A prediction must have at least 20 completed league matches and five relevant home/away matches per team before it can produce a selection. Market-specific probability thresholds are applied, and no selection is forced when none qualifies.
+
+Accumulator suggestions contain at most seven legs and allow only one leg per match to remove direct same-match correlation. Combined probability is shown only under an explicit distinct-match independence assumption. Each response identifies its weakest leg, data gaps, and why the full slip could fail. No bookmaker odds are fabricated and no bet is placed automatically.
+
 ## Testing
 
 ```powershell
 npm test
 ```
 
-The suite currently covers Stage 1 configuration and command registration plus the pre-existing calculation tests. Live Discord, MongoDB, and API-Football connectivity require valid local credentials and are not exercised by unit tests.
+The suite covers configuration, command registration, provider behavior, fixture persistence, Poisson calculations, analysis snapshots, prediction feeds, selection thresholds, correlation controls, and Discord command responses. Live integration is verified separately with configured local credentials.
 
 ## Planned stages
 
 1. Discord startup, configuration, health commands, and database connection — enabled
 2. API-Football provider, fixture persistence, caching, and `/fixtures` — enabled
 3. Transparent Poisson model and match analysis — implemented; live 2026 data blocked by the configured free API plan
-4. Predictions, betting analysis, and accumulator commands
+4. Predictions, betting analysis, and accumulator commands — enabled; honest empty states until valid current-season snapshots exist
 5. Scheduling, daily posts, and favourite teams
 6. Private bet tracking, settlement, and performance metrics
 7. Permitted external-source adapters and controlled model evaluation

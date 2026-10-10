@@ -1,37 +1,51 @@
 import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 
-import { generatePredictionSummary } from '../services/predictionEngine.js';
+import { getDatabaseStatus } from '../db/connect.js';
+import { loadTodayPredictions } from '../services/predictionFeedService.js';
 
-export default {
-  data: new SlashCommandBuilder()
-    .setName('predictions')
-    .setDescription('Display the best available football predictions for the day.'),
+const percent = (value) => `${(value * 100).toFixed(1)}%`;
+const EMPTY_MESSAGE = 'There are no saved pre-match predictions for today. Run `/analyse` on eligible fixtures first.';
 
-  async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+export function createPredictionsCommand({ load = loadTodayPredictions, databaseStatus = getDatabaseStatus } = {}) {
+  return {
+    data: new SlashCommandBuilder()
+      .setName('predictions')
+      .setDescription('Display today’s saved pre-match model predictions.'),
 
-    const samples = [
-      { home: 'Manchester City', away: 'Arsenal', homeLambda: 1.9, awayLambda: 1.2 },
-      { home: 'Real Madrid', away: 'Barcelona', homeLambda: 1.7, awayLambda: 1.5 },
-      { home: 'Inter Milan', away: 'Juventus', homeLambda: 1.4, awayLambda: 1.1 },
-    ];
-
-    const embed = new EmbedBuilder()
-      .setColor('#F39C12')
-      .setTitle('📈 Today\'s predictions');
-
-    samples.forEach(({ home, away, homeLambda, awayLambda }, index) => {
-      const summary = generatePredictionSummary(home, away, homeLambda, awayLambda);
-      embed.addFields({
-        name: `${home} vs ${away}`,
-        value: `Home ${((summary.markets.homeWin) * 100).toFixed(1)}% • Draw ${(summary.markets.draw * 100).toFixed(1)}% • Away ${(summary.markets.awayWin * 100).toFixed(1)}%`,
-      });
-
-      if (index === samples.length - 1) {
-        embed.setFooter({ text: `Model: ${summary.modelVersion}` });
+    async execute(interaction) {
+      await interaction.deferReply({ ephemeral: true });
+      if (!databaseStatus().connected) {
+        await interaction.editReply('Saved predictions are temporarily unavailable because the database is unavailable.');
+        return;
       }
-    });
+      const cards = await load();
+      if (cards.length === 0) {
+        await interaction.editReply(EMPTY_MESSAGE);
+        return;
+      }
 
-    await interaction.editReply({ embeds: [embed] });
-  },
-};
+      const fields = cards.slice(0, 20).map((card) => {
+        const p = card.snapshot.probabilities;
+        const topScore = p.exactScorelines?.[0];
+        return {
+          name: `${card.match.homeTeam} vs ${card.match.awayTeam}`,
+          value: [
+            `${card.match.leagueName} • ${card.match.kickoffAt.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Johannesburg' })}`,
+            `Home ${percent(p.homeWin)} • Draw ${percent(p.draw)} • Away ${percent(p.awayWin)}`,
+            topScore ? `Top score: ${topScore.score} (${percent(topScore.probability)})` : null,
+            `Model: ${card.snapshot.modelVersion}`,
+          ].filter(Boolean).join('\n'),
+        };
+      });
+      const embed = new EmbedBuilder()
+        .setColor('#F39C12')
+        .setTitle('📈 Today’s model predictions')
+        .setDescription('Saved pre-match model estimates. They are not bookmaker odds or guarantees.')
+        .addFields(fields)
+        .setTimestamp();
+      await interaction.editReply({ embeds: [embed] });
+    },
+  };
+}
+
+export default createPredictionsCommand();

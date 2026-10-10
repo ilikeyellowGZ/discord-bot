@@ -36,7 +36,7 @@ function card(id, homeWin, awayWin) {
 
 test('predictions command renders saved snapshot probabilities', async () => {
   const target = interaction();
-  await createPredictionsCommand({ load: async () => [card('1', 0.6, 0.2)] }).execute(target);
+  await createPredictionsCommand({ databaseStatus: () => ({ connected: true }), load: async () => [card('1', 0.6, 0.2)] }).execute(target);
 
   const embed = target.state.reply.embeds[0].toJSON();
   assert.equal(embed.title, '📈 Today’s model predictions');
@@ -46,7 +46,7 @@ test('predictions command renders saved snapshot probabilities', async () => {
 
 test('bets today renders only qualified saved-snapshot selections', async () => {
   const target = interaction();
-  await createBetsCommand({ load: async () => [card('1', 0.6, 0.2)] }).execute(target);
+  await createBetsCommand({ databaseStatus: () => ({ connected: true }), load: async () => [card('1', 0.6, 0.2)] }).execute(target);
 
   const embed = target.state.reply.embeds[0].toJSON();
   assert.equal(embed.title, '💡 Qualified selections today');
@@ -57,6 +57,7 @@ test('bets today renders only qualified saved-snapshot selections', async () => 
 test('accumulator command renders conservative and team-win variants', async () => {
   const target = interaction();
   await createAccumulatorCommand({
+    databaseStatus: () => ({ connected: true }),
     load: async () => [card('1', 0.61, 0.19), card('2', 0.18, 0.62)],
   }).execute(target);
 
@@ -69,12 +70,24 @@ test('accumulator command renders conservative and team-win variants', async () 
 
 test('Stage 4 commands return an honest empty state without sample predictions', async () => {
   for (const command of [
-    createPredictionsCommand({ load: async () => [] }),
-    createBetsCommand({ load: async () => [] }),
-    createAccumulatorCommand({ load: async () => [] }),
+    createPredictionsCommand({ databaseStatus: () => ({ connected: true }), load: async () => [] }),
+    createBetsCommand({ databaseStatus: () => ({ connected: true }), load: async () => [] }),
+    createAccumulatorCommand({ databaseStatus: () => ({ connected: true }), load: async () => [] }),
   ]) {
     const target = interaction();
     await command.execute(target);
     assert.match(target.state.reply, /no saved pre-match predictions/i);
   }
+});
+
+test('Stage 4 commands fail fast when snapshot storage is unavailable', async () => {
+  const target = interaction();
+  const command = createPredictionsCommand({
+    databaseStatus: () => ({ connected: false }),
+    load: async () => { throw new Error('must not query'); },
+  });
+
+  await command.execute(target);
+
+  assert.match(target.state.reply, /database is unavailable/i);
 });

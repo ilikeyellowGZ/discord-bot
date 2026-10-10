@@ -1,35 +1,59 @@
 import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 
+import { getDatabaseStatus } from '../db/connect.js';
 import { buildAccumulatorSelections } from '../services/accumulatorService.js';
+import { loadTodayPredictions } from '../services/predictionFeedService.js';
+import { selectBestMarkets, selectTeamWins } from '../services/predictionSelectionService.js';
 
-export default {
-  data: new SlashCommandBuilder()
-    .setName('accumulator')
-    .setDescription('Generate a conservative accumulator from model-supported selections.'),
+const EMPTY_MESSAGE = 'There are no saved pre-match predictions for today. Run `/analyse` on eligible fixtures first.';
 
-  async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+function formatAccumulator(accumulator) {
+  if (accumulator.legs.length < 2) return 'Not enough qualifying independent legs; no accumulator was forced.';
+  const legs = accumulator.legs.map((leg, index) =>
+    `${index + 1}. ${leg.match} — ${leg.selection} (${(leg.probability * 100).toFixed(1)}%)`).join('\n');
+  return [
+    legs,
+    `Combined estimate: ${(accumulator.combinedProbability * 100).toFixed(2)}%`,
+    `Weakest leg: ${accumulator.weakestLeg.selection} at ${(accumulator.weakestLeg.probability * 100).toFixed(1)}%`,
+  ].join('\n');
+}
 
-    const predictions = [
-      { match: 'Manchester City vs Arsenal', market: '1X2', selection: 'Home Win', probability: 0.62, reason: 'Home expected-goals edge and stronger pattern support.' },
-      { match: 'Inter Milan vs Juventus', market: '1X2', selection: 'Home Win', probability: 0.55, reason: 'Home side has stronger recent form and structure.' },
-      { match: 'PSG vs Marseille', market: 'Over 2.5', selection: 'Yes', probability: 0.57, reason: 'Both should create enough chances to trade above 2.5 goals.' },
-      { match: 'Benfica vs Porto', market: 'BTTS', selection: 'Yes', probability: 0.53, reason: 'Both teams record enough shots and chances.' },
-      { match: 'Napoli vs Lazio', market: 'Draw No Bet', selection: 'Napoli', probability: 0.52, reason: 'Napoli have a stronger home profile than the market is implying.' },
-    ];
+export function createAccumulatorCommand({ load = loadTodayPredictions, databaseStatus = getDatabaseStatus } = {}) {
+  return {
+    data: new SlashCommandBuilder()
+      .setName('accumulator')
+      .setDescription('Build conservative and team-win accumulators from saved predictions.'),
 
-    const accumulator = buildAccumulatorSelections(predictions, { maxLegs: 5, minProbability: 0.5 });
-    const embed = new EmbedBuilder()
-      .setColor('#00A8E8')
-      .setTitle('🧮 Conservative accumulator')
-      .addFields(
-        ...accumulator.legs.map((leg) => ({
-          name: `${leg.match} • ${leg.selection}`,
-          value: `Probability: ${(leg.probability * 100).toFixed(1)}% • Key risk: ${leg.keyRisks[0]}`,
-        }))
-      )
-      .setFooter({ text: `Combined probability (illustrative, independent legs): ${(accumulator.conservativeProbability * 100).toFixed(1)}%.` });
+    async execute(interaction) {
+      await interaction.deferReply({ ephemeral: true });
+      if (!databaseStatus().connected) {
+        await interaction.editReply('Saved predictions are temporarily unavailable because the database is unavailable.');
+        return;
+      }
+      const cards = await load();
+      if (cards.length === 0) {
+        await interaction.editReply(EMPTY_MESSAGE);
+        return;
+      }
 
-    await interaction.editReply({ embeds: [embed] });
-  },
-};
+      const conservative = buildAccumulatorSelections(selectBestMarkets(cards), { maxLegs: 7, minProbability: 0.6 });
+      const teamWins = buildAccumulatorSelections(selectTeamWins(cards), { maxLegs: 7, minProbability: 0.55 });
+      const embed = new EmbedBuilder()
+        .setColor('#00A8E8')
+        .setTitle('🧮 Probability-based accumulators')
+        .setDescription('Adding legs reduces the chance of the whole slip winning. No selection is safe and no bet has been placed.')
+        .addFields(
+          { name: 'Conservative multi-market', value: formatAccumulator(conservative) },
+          { name: 'Team-win accumulator', value: formatAccumulator(teamWins) },
+          {
+            name: 'Why these could fail',
+            value: 'Football outcomes have high variance; missing inputs and model error affect every leg. Cross-match independence is assumed, not proven.',
+          }
+        )
+        .setFooter({ text: conservative.correlationPolicy });
+      await interaction.editReply({ embeds: [embed] });
+    },
+  };
+}
+
+export default createAccumulatorCommand();

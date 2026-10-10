@@ -6,6 +6,9 @@ const commandSummary = [
   '/status — report bot and database health',
   '/fixtures — list upcoming fixtures from API-Football',
   '/analyse fixture_id:<id> — model an upcoming fixture when current-season statistics are available',
+  '/predictions — show today’s saved prediction snapshots',
+  '/bets today — show today’s highest-qualified model selections',
+  '/accumulator — build conservative and team-win suggestions from saved predictions',
 ];
 
 export default {
@@ -17,7 +20,7 @@ export default {
     const embed = new EmbedBuilder()
       .setColor('#3498DB')
       .setTitle('⚽ Football Intelligence Help')
-      .setDescription('Stages 1–3 are active. Analysis requires current-season statistics from the configured API-Football plan.')
+      .setDescription('Stages 1–4 are active. Prediction commands use saved pre-match snapshots and never generate sample selections.')
       .addFields({ name: 'Commands', value: commandSummary.join('\n') });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
